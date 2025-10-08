@@ -26,7 +26,10 @@
       <Reference Include="$(StreamerBotPath)/NAudio*.dll" />
       <Reference Include="$(StreamerBotPath)/Wpf*.dll" />
       <Reference Include="$(StreamerBotPath)/Newtonsoft.Json.dll" />
+      <Reference Include="$(StreamerBotPath)/System.*.dll" />
 
+      <Reference Include="System.Web" />
+      <Reference Include="System.Net.Http" />
       <!-- Uncomment the following line to reference all dlls in the streamerbot directory -->
       <!-- <Reference Include="$(StreamerBotPath)/**/*.dll" /> -->
    </ItemGroup>
