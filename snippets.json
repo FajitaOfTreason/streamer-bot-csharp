@@ -1,0 +1,90 @@
+{
+    "Execute C# Sub-Action Template" : {
+        "isFileTemplate": true,
+        "prefix": "streamer.bot-file-template",
+        "description": "New Execute C# Sub-Action for Streamer.bot",
+        "body": [
+            "using System;",
+            "",
+            "/*----- Class name should match FileName -----*/",
+            "#if EXTERNAL_EDITOR",
+            "public class ${TM_FILENAME_BASE} : CPHInlineBase",
+            "#else",
+            "public class CPHInline",
+            "#endif",
+            "/*--------------------------------------------*/",
+            "{",
+            "    public bool Execute()",
+            "    {",
+            "        ${0:// Add your code here}",
+            "        return true;",
+            "    }",
+            "}"
+        ]
+    },
+    "Add Init Method" : {
+        "prefix" : "init",
+        "description": "Add Streamer.bot's Init method which runs when this class is first compiled",
+        "body": [
+            "public void Init()",
+            "{",
+            "    $0",
+            "}"
+        ]
+    },
+    "Add Dispose Method" : {
+        "prefix" : "dispose",
+        "description": "Add Streamer.bot's Dispose method which runs when this class is unloaded",
+        "body": [
+            "public void Dispose()",
+            "{",
+            "    $0",
+            "}"
+        ]
+    },
+    "Try Get Argument" : {
+        "prefix": "try-get-argument",
+        "description": "Get the value of a local argument from the current action",
+        "body": "CPH.TryGetArg(\"${1:rawInput}\", out ${2|string,int,bool|} ${3:${1/(.*)/${1:/camelcase}/}})$0"
+    },
+    "Try Get Argument inside If Statement" : {
+        "prefix": "if-get-argument",
+        "description": "If statement with TryGetArg, ensuring that out variable exists inside if block",
+        "body": [
+            "if (CPH.TryGetArg(\"${1:rawInput}\", out ${2|string,int,bool|} ${3:${1/(.*)/${1:/camelcase}/}}))",
+            "{",
+            "    ${0:$TM_SELECTED_TEXT}",
+            "}"
+        ]
+    },
+    "Set Argument" : {
+        "prefix": "set-argument",
+        "description": "Sets or creates a local argument to be available to the current action",
+        "body": "CPH.SetArgument(\"${1:${TM_SELECTED_TEXT:argName}}\", ${2:${TM_SELECTED_TEXT:${1/(.*)/${1:/camelcase}/}}});"
+    },
+    "Get Global Variable" : {
+        "prefix": "get-global",
+        "description": "Gets the value of a global variable",
+        "body": "${1|string,int,bool,object,DateTime|} ${4:${2/(.*)/${1:/camelcase}/}} = CPH.GetGlobalVar<$1>(\"${2:globalVariable}\", persisted: ${3|true,false|});"
+    },
+    "Set Global Variable" : {
+        "prefix": "set-global",
+        "description": "Sets the value of a global variable which can be retrieved by other actions",
+        "body": "CPH.SetGlobalVar(\"${1:${TM_SELECTED_TEXT:GlobalVariable}}\", ${2:${TM_SELECTED_TEXT:${1/(.*)/${1:/camelcase}/}}}, persisted: ${3|true,false|});"
+    },
+    "Log Message" : {
+        "prefix": "log",
+        "description": "Log message to Streamer.bot's log file",
+        "body": "CPH.Log${1|Debug,Error,Warn,Info,Verbose|}($\"${0:${TM_SELECTED_TEXT:value}}\");"
+    },
+    "Get Random Integer" : {
+        "prefix": "random-int",
+        "description": "Get a random integer between two values (inclusive)",
+        "body": "CPH.Between(${1:0}, ${2:100})$0"
+    },
+    "Get Random Double" : {
+        "prefix": "random-double",
+        "description": "Get a random double between 0 and 1",
+        "body": "CPH.NextDouble()$0"
+    }
+}

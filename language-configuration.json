@@ -1,0 +1,8 @@
+{
+    "folding": {
+        "markers": {
+            "start": "^\\/\\*-+\\s+Class name should match FileName\\s+-+\\*\\/\\s*$|^\\s*public\\s+class\\s+\\w+\\s+:\\s+CPHInlineBase\\s*$",
+            "end": "\\s*#if\\s+EXTERNAL_EDITOR\\s*$|^\\s*\\/\\*-+\\*\\/\\s*$"
+        }
+    }
+}

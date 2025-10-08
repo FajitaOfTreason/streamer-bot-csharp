@@ -1,0 +1,179 @@
+{
+  "name": "streamer-bot-csharp",
+  "publisher": "fajita-of-treason",
+  "displayName": "Streamer.bot C#",
+  "description": "Snippets, Templates and Project Files to make writing Streamer.bot C# easier",
+  "icon": "media/streamerbot-csharp-logo.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FajitaOfTreason/streamer-bot-csharp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FajitaOfTreason/streamer-bot-csharp/issues"
+  },
+  "license": "SEE LICENSE IN LICENSE.txt",
+  "pricing": "Free",
+  "version": "0.0.1",
+  "extensionDependencies": ["ms-dotnettools.csharp"],
+  "engines": {
+    "vscode": "^1.104.0"
+  },
+  "categories": [
+    "Snippets",
+    "Other"
+  ],
+  "activationEvents": [
+    "workspaceContains:StreamerBot.csproj"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "snippets": [
+      {
+        "language": "csharp",
+        "path": "./snippets.json"
+      }
+    ],
+    "languages": [
+      {
+        "id": "csharp",
+        "extensions": [
+          ".cs"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "configuration": {
+      "title": "Streamer.bot C#",
+      "properties": {
+        "streamer-bot-csharp.autoFold": {
+          "type": "boolean",
+          "default" : true,
+          "description": "Auto-Fold sections of template containg the preprocessor directives"
+        },
+        "streamer-bot-csharp.newFileDir": {
+          "title": "New File Directory",
+          "type": "string",
+          "default" : "src",
+          "description": "Directory which new Streamer.bot C# files will be created",
+          "pattern": "^([\\w-]*[\\/\\\\]*)*$",
+          "patternErrorMessage": "Directory path should contain only forward slashes without special characters"
+        },
+        "streamer-bot-csharp.projectFileName": {
+          "title": "Project FileName",
+          "type": "string",
+          "default": "StreamerBot.csproj",
+          "description": "Project FileName used to create and identify project as a Streamer.bot C# project",
+          "pattern": "^[\\w]+[\\w-\\.]*[\\w]+\\.csproj$",
+          "patternErrorMessage": "Invalid FileName: must not contain special characters, and must use 'csproj' extension"
+        }
+      }
+    },
+    "configurationDefaults": {
+      "workbench.startupEditor": "readme",
+      "[csharp]": {
+        "editor.defaultFoldingRangeProvider": "fajita-of-treason.streamer-bot-csharp"
+      }
+    },
+    "commands": [
+      {
+        "command": "streamer-bot-csharp.newStreamerbotProject",
+        "category": "Streamer.bot",
+        "title": "New Streamer.bot C# Project"
+      },
+      {
+        "command": "streamer-bot-csharp.openWalkthrough",
+        "category": "Streamer.bot",
+        "title": "Welcome"
+      },
+      {
+        "command": "streamer-bot-csharp.newFile",
+        "title": "New Streamer.bot C# File",
+        "shortTitle": "Streamer.bot C# File",
+        "category": "Streamer.bot"
+      },
+      {
+        "command": "streamer-bot-csharp.setStreamerbotPath",
+        "title": "Update Referenced Streamer.bot Install Location",
+        "category": "Streamer.bot"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+          {"command": "streamer-bot-csharp.setStreamerbotPath", "when": "streamer-bot-csharp.inStreamerBotProject"},
+          {"command": "streamer-bot-csharp.newFile", "when": "streamer-bot-csharp.inStreamerBotProject"}
+      ],
+      "file/newFile": [
+        {"command": "streamer-bot-csharp.newFile", "when": "streamer-bot-csharp.inStreamerBotProject"}
+      ],
+      "explorer/context": [
+        {
+          "command": "streamer-bot-csharp.setStreamerbotPath",
+          "when": "streamer-bot-csharp.inStreamerBotProject && resourceFilename == StreamerBot.csproj",
+          "group": "Streamer.bot"
+        }
+      ]
+    },
+    "walkthroughs": [
+      {
+        "id": "sb.welcome",
+        "title": "Streamer.bot C#",
+        "featuredFor": ["StreamerBot.csproj"],
+        "description": "Create Streamer.bot C# files with IntelliSense.",
+        "steps": [
+          {
+            "id": "changeSettings",
+            "title": "Extension Settings",
+            "description": "You can change the default location to create new Streamer.bot C# files.\n[Open Streamer.bot C# Settings](command:workbench.action.openSettings?\"@ext:fajita-of-treason.streamer-bot-csharp\")",
+            "media": {
+              "image": "media/settings.png",
+              "altText": "Screenshot of the Streamer.bot C# extension's settings section including settings for the default new file location, auto-folding, and the name of the Streamer.bot csproj file."
+            }
+          },
+          {
+            "id": "createNewProject",
+            "title": "Create New Streamer.bot C# Project",
+            "description": "Create New Streamer.bot C# Project Directory \n[Create New Streamer.bot Project](command:streamer-bot-csharp.newStreamerbotProject)",
+            "media": {
+              "markdown": "walkthrough_md/new_sb_project.md"
+            },
+            "completionEvents": [
+              "onContext:streamer-bot-csharp.inStreamerBotProject"
+            ]
+          },
+          {
+            "id": "createNewFile",
+            "title": "Create New File",
+            "description": "Create a new Streamer.bot C# file\n[Create New Streamer.bot C# File](command:streamer-bot-csharp.newFile)",
+            "when": "streamer-bot-csharp.inStreamerBotProject",
+            "media": {
+              "markdown": "walkthrough_md/new_cs_file.md"
+            },
+            "completionEvents": [
+              "onCommand:streamer-bot-csharp.newFile"
+            ]
+          }
+        ]
+
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.104.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@typescript-eslint/eslint-plugin": "^8.42.0",
+    "@typescript-eslint/parser": "^8.42.0",
+    "eslint": "^9.34.0",
+    "typescript": "^5.9.2",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
