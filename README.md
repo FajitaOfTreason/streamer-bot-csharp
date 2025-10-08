@@ -21,7 +21,7 @@ The following snippets are available:
 
 ### Guided Project Creation
 The `New Streamer.bot C# Project` command lets you easily create a new Streamer.bot C# project file with the correct references by browsing for your local Streamer.bot install location  
-![Animation of creating a new Streamer.bot C# project by browsing for Streamer.bot's installation](media\command_new_sb_proj_example.gif)
+![Animation of creating a new Streamer.bot C# project by browsing for Streamer.bot's installation](media/command_new_sb_proj_example.gif)
 
 ### New File Creation with Template
 Quick creation of new C# files with a starting template when inside a Streamer.bot project directory with the `New Streamer.bot C# File` command
