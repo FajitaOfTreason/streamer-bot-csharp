@@ -3,7 +3,9 @@
 import { error } from "console";
 import * as path from "path";
 import * as vscode from "vscode";
-
+import { exec } from "child_process";
+import * as os from "os";
+import { promisify } from "util";
 
 const getProjectFileName = () => vscode.workspace.getConfiguration('streamer-bot-csharp').get('projectFileName', "StreamerBot.csproj");
 const getNewFileDir = () => vscode.workspace.getConfiguration('streamer-bot-csharp').get('newFileDir', 'src');
@@ -12,7 +14,16 @@ let newFileDir: string;
 export function activate(context: vscode.ExtensionContext) {
 
     console.log('"streamer-bot-csharp" is now active!');
+
     getRootPath();
+    
+    let sbStartMenuPath: string | undefined; 
+    if (os.type() === 'Windows_NT'){
+        getSbDirectoryFromStart().then(sbDir => {
+            sbStartMenuPath = sbDir;
+        });
+    }
+
 
     context.subscriptions.push(vscode.commands.registerCommand("streamer-bot-csharp.openWalkthrough", async () => {
         vscode.commands.executeCommand("workbench.action.openWalkthrough", 'fajita-of-treason.streamer-bot-csharp#sb.welcome', false);
@@ -85,9 +96,11 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Step 2: Get StreamerBot Directory Path
         let sbDirectory = process.env.STREAMERBOT_DIR;
+        if (!sbDirectory){
+            sbDirectory = sbStartMenuPath;
+        }
         let sbDirQuickpickOptions : vscode.QuickPickItem[] = [];
         if (sbDirectory){
-            sbDirectory = path.dirname(sbDirectory).replaceAll(path.sep, path.posix.sep);
             sbDirQuickpickOptions.push(
                 {label: '$(folder-active) ' + sbDirectory, description: "Current Streamer.bot Install Location"}
             );
@@ -110,6 +123,7 @@ export function activate(context: vscode.ExtensionContext) {
             console.log("project creation cancelled by user at sb exe browse");
             return;
         }
+        sbDirectory.replaceAll(path.sep, path.posix.sep);
 
         let newWindow = false;
         if(!fromWorkspace) {
@@ -169,23 +183,6 @@ export function activate(context: vscode.ExtensionContext) {
             return false;
         }
     }));
-
-    async function promptUserForSbLocation(): Promise<string | undefined>{
-        const fileHandle = await vscode.window.showOpenDialog({ title: 'Select Streamer.bot location', filters: { 'Streamer.bot': ['exe'] }, canSelectMany: false });
-        if (fileHandle) {
-            const sbExePath = fileHandle[0].fsPath;
-            if (sbExePath.toLowerCase().endsWith('streamer.bot.exe')){
-                const sbDirectory = path.dirname(sbExePath).replaceAll(path.sep, path.posix.sep);
-                return sbDirectory;
-            }
-            else{
-                console.log("user selected non stremer.bot.exe executable");
-                vscode.window.showErrorMessage("Selected executable was not 'Streamer.bot.exe'", {modal: true});
-                return undefined;
-            }
-        }
-        return undefined;
-    }
 
     context.subscriptions.push(vscode.commands.registerCommand("streamer-bot-csharp.newFile", async () => {
         const rootPath = await getRootPath();
@@ -310,6 +307,35 @@ async function getRootPath(): Promise<string | undefined> {
         }
     }
     return undefined;
+}
+
+function getSbDirectoryPathFromExePath(sbExePath: string): string | undefined{
+    if (sbExePath.trim().toLowerCase().endsWith('streamer.bot.exe')){
+        const sbDirectory = path.dirname(sbExePath);
+        return sbDirectory;
+    }
+    else{
+        console.log("user selected non streamer.bot.exe executable");
+        console.log(sbExePath);
+        vscode.window.showErrorMessage("Selected executable was not 'Streamer.bot.exe'", {modal: true});
+        return undefined;
+    }
+}
+
+async function promptUserForSbLocation(): Promise<string | undefined>{
+    const fileHandle = await vscode.window.showOpenDialog({ title: 'Select Streamer.bot location', filters: { 'Streamer.bot': ['exe'] }, canSelectMany: false });
+    if (fileHandle) {
+        const sbExePath = fileHandle[0].fsPath;
+        return getSbDirectoryPathFromExePath(sbExePath);
+    }
+    return undefined;
+}
+
+const execAsync = promisify(exec);
+
+async function getSbDirectoryFromStart(): Promise<string | undefined> {
+    const output = await execAsync('(Get-StartApps | Where-Object {$_.Name -eq "Streamer.bot"}).AppID', {'shell':'powershell.exe'});
+    return getSbDirectoryPathFromExePath(output.stdout);
 }
 
 function getUriFromRelativePath(rootPath: string, relativePath: string): vscode.Uri {
