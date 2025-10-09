@@ -26,20 +26,14 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
     
-    let sbStartMenuPath: string | undefined; 
-    if (os.type() === 'Windows_NT'){
-        getSbDirectoryFromStart().then(sbDir => {
-            sbStartMenuPath = sbDir;
-        });
-    }
-
-
     context.subscriptions.push(vscode.commands.registerCommand("streamer-bot-csharp.openWalkthrough", async () => {
         vscode.commands.executeCommand("workbench.action.openWalkthrough", 'fajita-of-treason.streamer-bot-csharp#sb.welcome', false);
     }));
 
     let resumeProjectCreationDirectoryUri: vscode.Uri | undefined = undefined;
     context.subscriptions.push(vscode.commands.registerCommand("streamer-bot-csharp.newStreamerbotProject", async () => {
+        const sbStartMenuPathPromise = getSbDirectoryFromStart();
+        
         // Step 1: Get Project Directory Uri
         let newProjectDirectoryUri: vscode.Uri | undefined = undefined;
         let fromWorkspace = false;
@@ -106,7 +100,7 @@ export function activate(context: vscode.ExtensionContext) {
         // Step 2: Get StreamerBot Directory Path
         let sbDirectory = process.env.STREAMERBOT_DIR;
         if (!sbDirectory){
-            sbDirectory = sbStartMenuPath;
+            sbDirectory = await sbStartMenuPathPromise;
         }
         let sbDirQuickpickOptions : vscode.QuickPickItem[] = [];
         if (sbDirectory){
@@ -343,8 +337,10 @@ async function promptUserForSbLocation(): Promise<string | undefined>{
 const execAsync = promisify(exec);
 
 async function getSbDirectoryFromStart(): Promise<string | undefined> {
-    const output = await execAsync('(Get-StartApps | Where-Object {$_.Name -eq "Streamer.bot"}).AppID', {'shell':'powershell.exe'});
-    return getSbDirectoryPathFromExePath(output.stdout);
+    if (os.type() === 'Windows_NT'){
+        const output = await execAsync('(Get-StartApps | Where-Object {$_.Name -eq "Streamer.bot"}).AppID', {'shell':'powershell.exe'});
+        return getSbDirectoryPathFromExePath(output.stdout);
+    }
 }
 
 function getUriFromRelativePath(rootPath: string, relativePath: string): vscode.Uri {
