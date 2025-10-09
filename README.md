@@ -47,7 +47,7 @@ This extension contributes the following settings:
 - `streamer-bot-csharp.projectFileName`: Filename for Streamer.bot C#'s `.csproj`
 
 ## Acknowledgements
-This extension is my attempt to add a layer of convenience to a [fantastic tutorial](https://rondhi.com/docs/cSharpStreamerBot/tutorial/) on using VS Code to write Streamer.bot C#, written by [Rhondi](https://www.twitch.tv/rondhi).
+This extension is my attempt to add a layer of convenience to a [fantastic tutorial](https://rondhi.com/docs/cSharpStreamerBot/tutorial/) on using VS Code to write Streamer.bot C#, written by [Rondhi](https://www.twitch.tv/rondhi).
 
 ## Known Issues
 
