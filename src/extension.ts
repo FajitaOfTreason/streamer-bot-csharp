@@ -15,7 +15,16 @@ export function activate(context: vscode.ExtensionContext) {
 
     console.log('"streamer-bot-csharp" is now active!');
 
-    getRootPath();
+    getRootPath().then(path =>{
+        if (path){
+            vscode.workspace.findFiles('**/*.cs', "**/{bin,obj}/**", 1).then(csFile => {
+                if (!csFile || csFile.length === 0){
+                    console.log('no csharp files in sb workspace, opening walkthrough');
+                    vscode.commands.executeCommand("workbench.action.openWalkthrough",  { category: 'fajita-of-treason.streamer-bot-csharp#sb.welcome', step: 'createNewFile' }, false);
+                }
+            });
+        }
+    });
     
     let sbStartMenuPath: string | undefined; 
     if (os.type() === 'Windows_NT'){
