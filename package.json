@@ -61,7 +61,6 @@
       }
     },
     "configurationDefaults": {
-      "workbench.startupEditor": "readme",
       "[csharp]": {
         "editor.defaultFoldingRangeProvider": "fajita-of-treason.streamer-bot-csharp"
       }
