@@ -105,7 +105,7 @@ export function activate(context: vscode.ExtensionContext) {
         let sbDirQuickpickOptions : vscode.QuickPickItem[] = [];
         if (sbDirectory){
             sbDirQuickpickOptions.push(
-                {label: '$(folder-active) ' + sbDirectory, description: "Current Streamer.bot Install Location"}
+                {label: '$(folder-active) ' + sbDirectory, description: "Streamer.bot Start Menu Shortcut"}
             );
         }
         const sbDirQuickPickSelection = await vscode.window.showQuickPick([
@@ -381,13 +381,22 @@ async function promptUserForSbLocation(): Promise<string | undefined>{
     return undefined;
 }
 
-const execAsync = promisify(exec);
-
 async function getSbDirectoryFromStart(): Promise<string | undefined> {
+    let sbDirectory: string | undefined;
     if (os.type() === 'Windows_NT'){
-        const output = await execAsync('(Get-StartApps | Where-Object {$_.Name -eq "Streamer.bot"}).AppID', {'shell':'powershell.exe'});
-        return getSbDirectoryPathFromExePath(output.stdout);
+        const execAsync = promisify(exec);
+        if (process.env.APPDATA) {
+            // since Get-StartApps can be out of date if you pin and then move the shortcut target, try shortcut first
+            const sbStartShortcut = path.join(process.env.APPDATA, 'Microsoft/Windows/Start Menu/Programs/Streamer.bot.lnk');
+            const output = await execAsync(`(New-Object -ComObject ("WScript.Shell")).CreateShortcut("${sbStartShortcut}").TargetPath`, {'shell':'powershell.exe'});
+            sbDirectory = getSbDirectoryPathFromExePath(output.stdout);
+        }
+        if (!sbDirectory) {
+            const output = await execAsync('(Get-StartApps | Where-Object {$_.Name -eq "Streamer.bot"}).AppID', {'shell':'powershell.exe'});
+            sbDirectory = getSbDirectoryPathFromExePath(output.stdout);
+        }
     }
+    return sbDirectory;
 }
 
 // This method is called when your extension is deactivated
