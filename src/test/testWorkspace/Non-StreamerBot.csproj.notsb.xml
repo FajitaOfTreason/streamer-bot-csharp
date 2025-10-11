@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+   <PropertyGroup>
+      <TargetFramework>net481</TargetFramework>
+      <LangVersion>13.0</LangVersion>
+      <Nullable>enable</Nullable>
+      <UseWPF>true</UseWPF>
+      <DefineConstants>EXTERNAL_EDITOR</DefineConstants>
+      <NoWarn>CS0114</NoWarn>
+
+   </PropertyGroup>
+   <ItemGroup>
+      <Reference Include="System.Web" />
+      <Reference Include="System.Net.Http" />
+      <!-- Uncomment the following line to reference all dlls in the streamerbot directory -->
+      <!-- <Reference Include="$(StreamerBotPath)/**/*.dll" /> -->
+   </ItemGroup>
+</Project>

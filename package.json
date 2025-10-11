@@ -23,7 +23,7 @@
     "Other"
   ],
   "activationEvents": [
-    "workspaceContains:StreamerBot.csproj"
+    "workspaceContains:*.csproj"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -54,17 +54,9 @@
           "title": "New File Directory",
           "type": "string",
           "default" : "src",
-          "description": "Directory which new Streamer.bot C# files will be created",
-          "pattern": "^([\\w-]*[\\/\\\\]*)*$",
-          "patternErrorMessage": "Directory path should contain only forward slashes without special characters"
-        },
-        "streamer-bot-csharp.projectFileName": {
-          "title": "Project FileName",
-          "type": "string",
-          "default": "StreamerBot.csproj",
-          "description": "Project FileName used to create and identify project as a Streamer.bot C# project",
-          "pattern": "^[\\w]+[\\w-\\.]*[\\w]+\\.csproj$",
-          "patternErrorMessage": "Invalid FileName: must not contain special characters, and must use 'csproj' extension"
+          "description": "Directory in which new Streamer.bot C# files will be created in workspace",
+          "pattern": "^([\\w\\ \\.-]*[\\/\\\\]?)*$",
+          "patternErrorMessage": "Directory path should contain no special characters"
         }
       }
     },
@@ -92,14 +84,14 @@
         "category": "Streamer.bot"
       },
       {
-        "command": "streamer-bot-csharp.setStreamerbotPath",
+        "command": "streamer-bot-csharp.setStreamerBotPath",
         "title": "Update Referenced Streamer.bot Install Location",
         "category": "Streamer.bot"
       }
     ],
     "menus": {
       "commandPalette": [
-          {"command": "streamer-bot-csharp.setStreamerbotPath", "when": "streamer-bot-csharp.inStreamerBotProject"},
+          {"command": "streamer-bot-csharp.setStreamerBotPath", "when": "streamer-bot-csharp.inStreamerBotProject"},
           {"command": "streamer-bot-csharp.newFile", "when": "streamer-bot-csharp.inStreamerBotProject"}
       ],
       "file/newFile": [
@@ -107,8 +99,13 @@
       ],
       "explorer/context": [
         {
-          "command": "streamer-bot-csharp.setStreamerbotPath",
-          "when": "streamer-bot-csharp.inStreamerBotProject && resourceFilename == StreamerBot.csproj",
+          "command": "streamer-bot-csharp.setStreamerBotPath",
+          "when": "streamer-bot-csharp.inStreamerBotProject && resourceFilename in streamer-bot-csharp.streamerBotProjFilename",
+          "group": "Streamer.bot"
+        },
+        {
+          "command": "streamer-bot-csharp.newFile",
+          "when": "streamer-bot-csharp.inStreamerBotProject && resourceFilename not in streamer-bot-csharp.streamerBotProjFilename && !(resourcePath =~ /(obj|bin)/)",
           "group": "Streamer.bot"
         }
       ]
@@ -131,7 +128,7 @@
           },
           {
             "id": "createNewProject",
-            "title": "Create New Streamer.bot C# Project",
+            "title": "Initialize Streamer.bot C# Project Directory",
             "description": "Create New Streamer.bot C# Project Directory \n[Create New Streamer.bot Project](command:streamer-bot-csharp.newStreamerbotProject)",
             "media": {
               "markdown": "walkthrough_md/new_sb_project.md"
@@ -142,7 +139,7 @@
           },
           {
             "id": "createNewFile",
-            "title": "Create New File",
+            "title": "Create New C# File",
             "description": "Create a new Streamer.bot C# file\n[Create New Streamer.bot C# File](command:streamer-bot-csharp.newFile)",
             "when": "streamer-bot-csharp.inStreamerBotProject",
             "media": {

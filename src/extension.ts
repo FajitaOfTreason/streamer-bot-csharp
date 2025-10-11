@@ -7,16 +7,16 @@ import { exec } from "child_process";
 import * as os from "os";
 import { promisify } from "util";
 
-const getProjectFileName = () => vscode.workspace.getConfiguration('streamer-bot-csharp').get('projectFileName', "StreamerBot.csproj");
-const getNewFileDir = () => vscode.workspace.getConfiguration('streamer-bot-csharp').get('newFileDir', 'src');
-let newFileDir: string;
+export const getNewFileDir = () => vscode.workspace.getConfiguration('streamer-bot-csharp').get('newFileDir', 'src').trim().replaceAll(/^\/|\/$/g, '');
+let rootPath: string | undefined;
+let sbProjUri: vscode.Uri | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
 
     console.log('"streamer-bot-csharp" is now active!');
-
-    getRootPath().then(path =>{
+    getSbProjectRootPath().then(path =>{
         if (path){
+            rootPath = path;
             vscode.workspace.findFiles('**/*.cs', "**/{bin,obj}/**", 1).then(csFile => {
                 if (!csFile || csFile.length === 0){
                     console.log('no csharp files in sb workspace, opening walkthrough');
@@ -147,7 +147,7 @@ export function activate(context: vscode.ExtensionContext) {
         const projectContent = (await vscode.workspace.openTextDocument(path.join(context.extensionPath, 'StreamerBot.csproj.xml')));
         const replacementText = getProjFileReplacementText(projectContent, sbDirectory);
         try{
-            await vscode.workspace.fs.writeFile(vscode.Uri.file(path.join(newProjectDirectoryUri.fsPath, getProjectFileName())), Buffer.from(replacementText));
+            await vscode.workspace.fs.writeFile(vscode.Uri.file(path.join(newProjectDirectoryUri.fsPath, path.basename(newProjectDirectoryUri.fsPath) + '.csproj')), Buffer.from(replacementText));
 
             vscode.commands.executeCommand('vscode.openFolder', newProjectDirectoryUri, {forceNewWindow: newWindow});
             if (fromWorkspace){
@@ -160,15 +160,16 @@ export function activate(context: vscode.ExtensionContext) {
 
     }));
 
-    context.subscriptions.push(vscode.commands.registerCommand("streamer-bot-csharp.setStreamerbotPath", async () => {
-        const rootPath = await getRootPath();
-        if (!rootPath) {
+    context.subscriptions.push(vscode.commands.registerCommand("streamer-bot-csharp.setStreamerBotPath", async () => {
+        if (!sbProjUri) {
+            await getSbProjectRootPath();
+        }
+        if (!sbProjUri){
             vscode.window.showErrorMessage("No workspace folder open.", {modal: true});
             return false;
         }
-        const projFileUri = getUriFromRelativePath(rootPath, getProjectFileName());
 
-        let contents = await vscode.workspace.openTextDocument(projFileUri);
+        let contents = await vscode.workspace.openTextDocument(sbProjUri);
         if (contents.isDirty){
             vscode.window.showErrorMessage("Can not update project file while it has unsaved changes.", {modal: true});
             return false;
@@ -187,21 +188,24 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }));
 
-    context.subscriptions.push(vscode.commands.registerCommand("streamer-bot-csharp.newFile", async () => {
-        const rootPath = await getRootPath();
+    context.subscriptions.push(vscode.commands.registerCommand("streamer-bot-csharp.newFile", async (explorerPath?: vscode.Uri) => {
+        if (!rootPath) {
+            rootPath = await getSbProjectRootPath();
+        }
         if (!rootPath) {
             vscode.window.showErrorMessage("No workspace folder open.");
             return;
         }
-        newFileDir = getNewFileDir();
+        const newFileDir = getNewFileDir();
         let fileName = await vscode.window.showInputBox({
             title: "Enter New CS File Name",
             placeHolder: "MyNewAction.cs",
-            validateInput: validateNewFile,
+            value: await getDirPathRelativeToNewFileDir(rootPath, newFileDir, explorerPath),
+            validateInput: userText => {return validateNewFile(newFileDir, userText);},
         });
         if (fileName) {
             console.log(fileName);
-            const newFileUri = getUriFromRelativePath(rootPath, getNewCsFileRelativePath(fileName));
+            const newFileUri = vscode.Uri.file(path.posix.join(rootPath, getNewCsFileRelativePath(newFileDir, fileName)));
             try {
                 const fileStats = await vscode.workspace.fs.stat(newFileUri);
                 let existingDoc = await vscode.workspace.openTextDocument(newFileUri);
@@ -212,7 +216,6 @@ export function activate(context: vscode.ExtensionContext) {
                 );
                 await vscode.window.showTextDocument(newFileUri);
                 if (existingDoc.getText().trim() === "") {
-
                     fillWithSnippet();
                 }
             } catch (err: any) {
@@ -238,51 +241,59 @@ function getProjFileReplacementText(contents: vscode.TextDocument, sbDirectory: 
     return contents.getText().replace(/(?<=\<StreamerBotPath[^\>]*\>)([^<]*)(?=\<\/StreamerBotPath\>)/, sbDirectory);
 }
 
-async function validateNewFile(value: string): Promise<vscode.InputBoxValidationMessage | undefined> {
-    if (value) {
-        if (value.indexOf(' ') > 0) {
+export async function validateNewFile(newFileDir: string, userText: string): Promise<vscode.InputBoxValidationMessage | undefined> {
+    userText = userText.trim();
+        if (!userText || userText.endsWith(path.win32.sep) || userText.endsWith(path.posix.sep)){
             return {
-                message: "$(error) C# filenames can not contain spaces",
-                severity: vscode.InputBoxValidationSeverity.Error,
+                message: 'Enter filename',
+                severity: vscode.InputBoxValidationSeverity.Error
             };
         }
-        const newFileName = value.toLowerCase().endsWith('.cs') ? value : value + '.cs';
-        let foundFiles = await vscode.workspace.findFiles('**/' + newFileName,);
+        const newFileName = getNewCsFileRelativePath(newFileDir, userText);
+        let foundFiles = await vscode.workspace.findFiles('**/' + newFileName.substring(newFileName.lastIndexOf('/') + 1));
         if (foundFiles.length > 0) {
             return {
                 message: '$(error)' + vscode.workspace.asRelativePath(foundFiles[0]) + ' already exists.',
                 severity: vscode.InputBoxValidationSeverity.Error
             };
         }
-        if (value.match(/^([\w\.-]*[\/\\])*[A-Z][A-z]*(\.cs)?$/)) {
+        const disallowedFileCharsMatches = newFileName.match(/[^\/A-z](?!(.*\/|cs$))/g);
+        if (disallowedFileCharsMatches) {
             return {
-                message: "Will create " + getNewCsFileRelativePath(value),
-                severity: vscode.InputBoxValidationSeverity.Info,
-            };
-        }
-        else if (value.indexOf('.', value.replaceAll('\\', '/').lastIndexOf('/')) > 0 && !value.endsWith('.cs')){
-            return {
-                message: "$(error) C# files must use the .cs extension",
+                message: "$(error) Disallowed Characters in filename: " + disallowedFileCharsMatches.map(m => "'" + m[0] + "'").join(', '),
                 severity: vscode.InputBoxValidationSeverity.Error,
             }; 
         }
-        else {
+        const disallowedDirectoryCharMatches = newFileName.match(/[^\/\w\s\.-](?=.*\/)/g);
+        if (disallowedDirectoryCharMatches) {
             return {
-                message: "$(warning) C# filenames should start with a capital letter",
-                severity: vscode.InputBoxValidationSeverity.Warning,
+                message: "$(error) Disallowed Characters in directory path: " + disallowedDirectoryCharMatches.map(m => "'" + m[0] + "'").join(', '),
+                severity: vscode.InputBoxValidationSeverity.Error,
+            }; 
+        }
+        else{
+            return {
+                message: "Will create " + newFileName,
+                severity: vscode.InputBoxValidationSeverity.Info,
             };
         }
-    }
 }
 
-function getNewCsFileRelativePath(value: string) {
-    let relativePath = value.replaceAll(path.win32.sep, path.posix.sep);
+export function getNewCsFileRelativePath(baseDir: string, relativeFilePath: string) {
+    let relativePath = relativeFilePath.replaceAll(path.win32.sep, path.posix.sep);
     if (!relativePath.startsWith(path.posix.sep)){
-        relativePath = path.posix.join(newFileDir, relativePath);
+        relativePath = path.posix.join(baseDir, relativePath);
     }
     if (!relativePath.endsWith('.cs')) {
         relativePath += '.cs';
     }
+    // trim spaces around all '/' characters (directories can not start or end in spaces)
+    relativePath = relativePath.replaceAll(/(\s*\/\s*)/g, '/');
+    // capitalize first letter which has no '/' following it (Classes should start with capital letter)
+    relativePath = relativePath.replace(/[A-z](?!.*\/)/, a => a.toUpperCase());
+    // remove all spaces and capitalize following letter which have no '/' following them (convert spaces to camelCase)
+    relativePath = relativePath.replaceAll(/\s+([A-z])(?!.*\/)/g, (text, a:string) => { return a.toUpperCase(); });
+
     return relativePath;
 }
 
@@ -294,19 +305,55 @@ async function fillWithSnippet() {
     await vscode.commands.executeCommand("workbench.action.files.save");
 }
 
-async function getRootPath(): Promise<string | undefined> {
+export async function getDirPathRelativeToNewFileDir(rootPath: string, newFileDir: string, uri?: vscode.Uri): Promise<string | undefined> {
+    if (uri){
+        let fullPath = uri.fsPath.replaceAll(path.win32.sep, path.posix.sep);
+        if (fullPath === rootPath){
+            return '/';
+        }
+        try {
+            if ((await vscode.workspace.fs.stat(uri)).type === vscode.FileType.File){
+                fullPath = path.dirname(uri.fsPath);
+            }
+            const relativeExplorerPath = vscode.workspace.asRelativePath(fullPath) + '/';
+            if (relativeExplorerPath.startsWith(newFileDir)){
+                return relativeExplorerPath.substring(newFileDir.length + 1);
+            }
+            else{
+                return relativeExplorerPath;
+            }
+        }
+        catch { return; }
+    }
+}
+
+export async function getSbProjectRootPath(projExt?: string): Promise<string | undefined> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
         return;
     }
-    const projfilePaths = await vscode.workspace.findFiles(getProjectFileName());
+    if (!projExt) { projExt = '*.csproj'; }
+    const projfilePaths = await vscode.workspace.findFiles(projExt);
     if (!projfilePaths || projfilePaths.length === 0){
         return;
     }
+
+    const projFileSearchPromises = projfilePaths.map(path => 
+        vscode.workspace.openTextDocument(path).then(doc => {
+            if (doc.getText().includes("</StreamerBotPath>")) { return path; }
+        }));
+
+    const foundSbProjUri = (await Promise.all(projFileSearchPromises)).find(x => !!x);
+    if (!foundSbProjUri){
+        return;
+    }
+
     for (const folder of workspaceFolders){
-        if (projfilePaths[0].fsPath.startsWith(folder.uri.fsPath)){
+        if (foundSbProjUri.fsPath.startsWith(folder.uri.fsPath)){
             vscode.commands.executeCommand('setContext', 'streamer-bot-csharp.inStreamerBotProject', true);
-            return folder.uri.fsPath;
+            vscode.commands.executeCommand('setContext', 'streamer-bot-csharp.streamerBotProjFilename', [ path.basename(foundSbProjUri.fsPath) ]);
+            sbProjUri = foundSbProjUri;
+            return folder.uri.fsPath.replaceAll(path.win32.sep, path.posix.sep);
         }
     }
     return undefined;
@@ -341,12 +388,6 @@ async function getSbDirectoryFromStart(): Promise<string | undefined> {
         const output = await execAsync('(Get-StartApps | Where-Object {$_.Name -eq "Streamer.bot"}).AppID', {'shell':'powershell.exe'});
         return getSbDirectoryPathFromExePath(output.stdout);
     }
-}
-
-function getUriFromRelativePath(rootPath: string, relativePath: string): vscode.Uri {
-    const filePath = path.join(rootPath, relativePath);
-    const newFile = vscode.Uri.file(filePath);
-    return newFile;
 }
 
 // This method is called when your extension is deactivated

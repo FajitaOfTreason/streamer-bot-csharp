@@ -20,11 +20,11 @@ The following snippets are available:
 - `get-random-double` (between 0 and 1)
 
 ### Guided Project Creation
-The `New Streamer.bot C# Project` command lets you easily create a new Streamer.bot C# project file with the correct references by browsing for your local Streamer.bot install location  
+The `New Streamer.bot C# Project` command lets you easily create a new Streamer.bot C# project file with the correct references by automatically detecting Streamer.bot's location if it's pinned to the start menu, or by browsing for your Streamer.bot install location  
 ![Animation of creating a new Streamer.bot C# project by browsing for Streamer.bot's installation](media/readme/command_new_sb_proj_example.gif)
 
 ### New File Creation with Template
-Quick creation of new C# files with a starting template when inside a Streamer.bot project directory with the `New Streamer.bot C# File` command
+Quick creation of new C# files with a starting template when inside a Streamer.bot project directory with the `New Streamer.bot C# File` command  
 ![Animation of creating a new Streamer.bot file via the New Streamer.bot C# File command](media/readme/new_file_example.gif)
 
 ### Copy Full File Contents into Streamer.bot
@@ -44,7 +44,6 @@ This extension contributes the following settings:
 
 - `streamer-bot-csharp.autoFold`: Auto-Fold sections of template containing the preprocessor directives
 - `streamer-bot-csharp.newFileDir`: Directory into which new C# files will be created
-- `streamer-bot-csharp.projectFileName`: Filename for Streamer.bot C#'s `.csproj`
 
 ## Acknowledgements
 This extension is my attempt to add a layer of convenience to a [fantastic tutorial](https://rondhi.com/docs/cSharpStreamerBot/tutorial/) on using VS Code to write Streamer.bot C#, written by [Rondhi](https://www.twitch.tv/rondhi).
