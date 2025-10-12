@@ -33,6 +33,7 @@ export function activate(context: vscode.ExtensionContext) {
     let resumeProjectCreationDirectoryUri: vscode.Uri | undefined = undefined;
     context.subscriptions.push(vscode.commands.registerCommand("streamer-bot-csharp.newStreamerbotProject", async () => {
         const sbStartMenuPathPromise = getSbDirectoryFromStart();
+        const sbTaskbarPathPromise = getSbDirectoryFromTaskbar();
         
         // Step 1: Get Project Directory Uri
         let newProjectDirectoryUri: vscode.Uri | undefined = undefined;
@@ -96,16 +97,18 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         resumeProjectCreationDirectoryUri = newProjectDirectoryUri;
-
         // Step 2: Get StreamerBot Directory Path
-        let sbDirectory = process.env.STREAMERBOT_DIR;
-        if (!sbDirectory){
-            sbDirectory = await sbStartMenuPathPromise;
-        }
         let sbDirQuickpickOptions : vscode.QuickPickItem[] = [];
-        if (sbDirectory){
+        const sbTaskbarPath = await sbTaskbarPathPromise;
+        if (sbTaskbarPath){
             sbDirQuickpickOptions.push(
-                {label: '$(folder-active) ' + sbDirectory, description: "Streamer.bot Start Menu Shortcut"}
+                {label: '$(folder-active) ' + sbTaskbarPath, description: "Taskbar Shortcut", }
+            );
+        }
+        const sbStartPath = await sbStartMenuPathPromise;
+        if (sbStartPath && sbStartPath !== sbTaskbarPath){
+            sbDirQuickpickOptions.push(
+                {label: '$(folder-active) ' + sbStartPath, description: "Start Menu Shortcut"}
             );
         }
         const sbDirQuickPickSelection = await vscode.window.showQuickPick([
@@ -116,7 +119,14 @@ export function activate(context: vscode.ExtensionContext) {
             console.log("project creation cancelled by user at sb quickpick");
             return;
         }
-        if (sbDirQuickPickSelection?.description === "Other Folder"){
+        let sbDirectory: string | undefined;
+        if (sbDirQuickPickSelection.description === "Taskbar Shortcut"){
+            sbDirectory = sbTaskbarPath;
+        }
+        else if (sbDirQuickPickSelection.description === "Start Menu Shortcut"){
+            sbDirectory = sbStartPath;
+        }
+        else if (sbDirQuickPickSelection.description === "Other Folder"){
             sbDirectory = undefined;
         }
         if (!sbDirectory){
@@ -367,7 +377,6 @@ function getSbDirectoryPathFromExePath(sbExePath: string): string | undefined{
     else{
         console.log("user selected non streamer.bot.exe executable");
         console.log(sbExePath);
-        vscode.window.showErrorMessage("Selected executable was not 'Streamer.bot.exe'", {modal: true});
         return undefined;
     }
 }
@@ -376,7 +385,10 @@ async function promptUserForSbLocation(): Promise<string | undefined>{
     const fileHandle = await vscode.window.showOpenDialog({ title: 'Select Streamer.bot location', filters: { 'Streamer.bot': ['exe'] }, canSelectMany: false });
     if (fileHandle) {
         const sbExePath = fileHandle[0].fsPath;
-        return getSbDirectoryPathFromExePath(sbExePath);
+        const sbDirectory = getSbDirectoryPathFromExePath(sbExePath);
+        if (!sbDirectory){
+            vscode.window.showErrorMessage("Selected executable was not 'Streamer.bot.exe'", {modal: true});
+        }
     }
     return undefined;
 }
@@ -398,6 +410,18 @@ async function getSbDirectoryFromStart(): Promise<string | undefined> {
     }
     return sbDirectory;
 }
+
+async function getSbDirectoryFromTaskbar(): Promise<string | undefined> {
+    if (os.type() === 'Windows_NT'){
+        const execAsync = promisify(exec);
+        if (process.env.APPDATA) {
+            const sbTaskbarShortcut = path.join(process.env.APPDATA, 'Microsoft/Internet Explorer/Quick Launch/User Pinned/TaskBar/Streamer.bot.lnk');
+            const output = await execAsync(`(New-Object -ComObject ("WScript.Shell")).CreateShortcut("${sbTaskbarShortcut}").TargetPath`, {'shell':'powershell.exe'});
+            return getSbDirectoryPathFromExePath(output.stdout);
+        }
+    }
+}
+
 
 // This method is called when your extension is deactivated
 export function deactivate() { }
