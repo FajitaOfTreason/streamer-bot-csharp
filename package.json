@@ -13,7 +13,7 @@
   },
   "license": "SEE LICENSE IN LICENSE.txt",
   "pricing": "Free",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "extensionDependencies": ["ms-dotnettools.csharp"],
   "engines": {
     "vscode": "^1.104.0"

@@ -98,40 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         resumeProjectCreationDirectoryUri = newProjectDirectoryUri;
         // Step 2: Get StreamerBot Directory Path
-        let sbDirQuickpickOptions : vscode.QuickPickItem[] = [];
-        const sbTaskbarPath = await sbTaskbarPathPromise;
-        if (sbTaskbarPath){
-            sbDirQuickpickOptions.push(
-                {label: '$(folder-active) ' + sbTaskbarPath, description: "Taskbar Shortcut", }
-            );
-        }
-        const sbStartPath = await sbStartMenuPathPromise;
-        if (sbStartPath && sbStartPath !== sbTaskbarPath){
-            sbDirQuickpickOptions.push(
-                {label: '$(folder-active) ' + sbStartPath, description: "Start Menu Shortcut"}
-            );
-        }
-        const sbDirQuickPickSelection = await vscode.window.showQuickPick([
-            ...sbDirQuickpickOptions,
-            {label: "$(folder) Browse for Folder", description: "Other Folder"}
-        ],{canPickMany: false, placeHolder: "Select Streamer.bot Location"});
-        if (!sbDirQuickPickSelection){
-            console.log("project creation cancelled by user at sb quickpick");
-            return;
-        }
-        let sbDirectory: string | undefined;
-        if (sbDirQuickPickSelection.description === "Taskbar Shortcut"){
-            sbDirectory = sbTaskbarPath;
-        }
-        else if (sbDirQuickPickSelection.description === "Start Menu Shortcut"){
-            sbDirectory = sbStartPath;
-        }
-        else if (sbDirQuickPickSelection.description === "Other Folder"){
-            sbDirectory = undefined;
-        }
-        if (!sbDirectory){
-            sbDirectory = await promptUserForSbLocation();
-        }
+        let sbDirectory = await getSbDirectoryQuickPick(sbStartMenuPathPromise, sbTaskbarPathPromise);
         if (!sbDirectory){
             console.log("project creation cancelled by user at sb exe browse");
             return;
@@ -171,6 +138,8 @@ export function activate(context: vscode.ExtensionContext) {
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand("streamer-bot-csharp.setStreamerBotPath", async () => {
+        const sbStartMenuPathPromise = getSbDirectoryFromStart();
+        const sbTaskbarPathPromise = getSbDirectoryFromTaskbar();
         if (!sbProjUri) {
             await getSbProjectRootPath();
         }
@@ -185,7 +154,7 @@ export function activate(context: vscode.ExtensionContext) {
             return false;
         }
 
-        const sbDirFromUserPrompt = await promptUserForSbLocation();
+        const sbDirFromUserPrompt = await getSbDirectoryQuickPick(sbTaskbarPathPromise, sbStartMenuPathPromise);
         if (sbDirFromUserPrompt){
             const sbDirectory = sbDirFromUserPrompt;
             const replacementText = getProjFileReplacementText(contents, sbDirectory);
@@ -367,6 +336,44 @@ export async function getSbProjectRootPath(projExt?: string): Promise<string | u
         }
     }
     return undefined;
+}
+
+async function getSbDirectoryQuickPick(sbStartMenuPathPromise: Promise<string | undefined>, sbTaskbarPathPromise: Promise<string | undefined>): Promise<string | undefined>{
+    let sbDirQuickpickOptions : vscode.QuickPickItem[] = [];
+        const sbTaskbarPath = await sbTaskbarPathPromise;
+        if (sbTaskbarPath){
+            sbDirQuickpickOptions.push(
+                {label: '$(folder-active) ' + sbTaskbarPath, description: "Pinned to Taskbar", }
+            );
+        }
+        const sbStartPath = await sbStartMenuPathPromise;
+        if (sbStartPath && sbStartPath !== sbTaskbarPath){
+            sbDirQuickpickOptions.push(
+                {label: '$(folder-active) ' + sbStartPath, description: "Pinned to Start Menu"}
+            );
+        }
+        const sbDirQuickPickSelection = await vscode.window.showQuickPick([
+            ...sbDirQuickpickOptions,
+            {label: "$(folder) Browse for Folder", description: "Other Folder"}
+        ],{canPickMany: false, placeHolder: "Select Streamer.bot Location"});
+        if (!sbDirQuickPickSelection){
+            console.log("project creation cancelled by user at sb quickpick");
+            return;
+        }
+        let sbDirectory: string | undefined;
+        if (sbDirQuickPickSelection.description === "Pinned to Taskbar"){
+            sbDirectory = sbTaskbarPath;
+        }
+        else if (sbDirQuickPickSelection.description === "Pinned to Start Menu"){
+            sbDirectory = sbStartPath;
+        }
+        else if (sbDirQuickPickSelection.description === "Other Folder"){
+            sbDirectory = undefined;
+        }
+        if (!sbDirectory){
+            sbDirectory = await promptUserForSbLocation();
+        }
+        return sbDirectory;
 }
 
 function getSbDirectoryPathFromExePath(sbExePath: string): string | undefined{
