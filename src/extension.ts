@@ -395,6 +395,8 @@ async function promptUserForSbLocation(): Promise<string | undefined>{
         const sbDirectory = getSbDirectoryPathFromExePath(sbExePath);
         if (!sbDirectory){
             vscode.window.showErrorMessage("Selected executable was not 'Streamer.bot.exe'", {modal: true});
+        } else{
+            return sbDirectory;
         }
     }
     return undefined;
