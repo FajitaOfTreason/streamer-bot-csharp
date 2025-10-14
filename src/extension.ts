@@ -408,7 +408,13 @@ async function getSbDirectoryFromStart(): Promise<string | undefined> {
         const execAsync = promisify(exec);
         if (process.env.APPDATA) {
             // since Get-StartApps can be out of date if you pin and then move the shortcut target, try shortcut first
-            const sbStartShortcut = path.join(process.env.APPDATA, 'Microsoft/Windows/Start Menu/Programs/Streamer.bot.lnk');
+            let sbStartShortcut = path.join(process.env.APPDATA, 'Microsoft/Windows/Start Menu/Programs/Streamer.bot.lnk');
+            try{
+                await vscode.workspace.fs.stat(vscode.Uri.file(sbStartShortcut));
+            }
+            catch{
+                sbStartShortcut = path.join(process.env.APPDATA, 'Microsoft/Windows/Start Menu/Programs/Streamer.lnk');
+            }
             const output = await execAsync(`(New-Object -ComObject ("WScript.Shell")).CreateShortcut("${sbStartShortcut}").TargetPath`, {'shell':'powershell.exe'});
             sbDirectory = getSbDirectoryPathFromExePath(output.stdout);
         }
@@ -424,7 +430,13 @@ async function getSbDirectoryFromTaskbar(): Promise<string | undefined> {
     if (os.type() === 'Windows_NT'){
         const execAsync = promisify(exec);
         if (process.env.APPDATA) {
-            const sbTaskbarShortcut = path.join(process.env.APPDATA, 'Microsoft/Internet Explorer/Quick Launch/User Pinned/TaskBar/Streamer.bot.lnk');
+            let sbTaskbarShortcut = path.join(process.env.APPDATA, 'Microsoft/Internet Explorer/Quick Launch/User Pinned/TaskBar/Streamer.bot.lnk');
+            try{
+                await vscode.workspace.fs.stat(vscode.Uri.file(sbTaskbarShortcut));
+            }
+            catch{
+                sbTaskbarShortcut = path.join(process.env.APPDATA, 'Microsoft/Internet Explorer/Quick Launch/User Pinned/TaskBar/Streamer.lnk');
+            }
             const output = await execAsync(`(New-Object -ComObject ("WScript.Shell")).CreateShortcut("${sbTaskbarShortcut}").TargetPath`, {'shell':'powershell.exe'});
             return getSbDirectoryPathFromExePath(output.stdout);
         }
