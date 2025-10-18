@@ -86,5 +86,15 @@
         "prefix": "random-double",
         "description": "Get a random double between 0 and 1",
         "body": "CPH.NextDouble()$0"
+    },
+    "Twitch Announce" : {
+        "prefix": "twitch-announce",
+        "description": "Send announcement to twitch channel",
+        "body": "CPH.TwitchAnnounce(${1:message}, bot:${2|true,false|}, \"${3|default,blue,green,orange,purple|}\", fallback:${4|true,false|});$0"
+    },
+    "Twitch Message" : {
+        "prefix": "twitch-message",
+        "description": "Send message to twitch channel",
+        "body": "CPH.SendMessage(${1:message}, bot:${2|true,false|}, fallback:${3|true,false|});$0"
     }
 }
