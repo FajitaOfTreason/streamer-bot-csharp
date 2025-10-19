@@ -183,6 +183,7 @@ export function activate(context: vscode.ExtensionContext) {
             title: "Enter New CS File Name",
             placeHolder: "MyNewAction.cs",
             value: await getDirPathRelativeToNewFileDir(rootPath, newFileDir, explorerPath),
+            valueSelection: [-1,-1],
             validateInput: userText => {return validateNewFile(newFileDir, userText);},
         });
         if (fileName) {
