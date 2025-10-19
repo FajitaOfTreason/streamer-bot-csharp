@@ -14,21 +14,25 @@ let sbProjUri: vscode.Uri | undefined;
 export function activate(context: vscode.ExtensionContext) {
 
     console.log('"streamer-bot-csharp" is now active!');
+    
+    context.subscriptions.push(vscode.commands.registerCommand("streamer-bot-csharp.openWalkthrough", async () => {
+        vscode.commands.executeCommand("workbench.action.openWalkthrough", 'fajita-of-treason.streamer-bot-csharp#sb.welcome', false);
+    }));
+
     getSbProjectRootPath().then(path =>{
         if (path){
             rootPath = path;
             vscode.workspace.findFiles('**/*.cs', "**/{bin,obj}/**", 1).then(csFile => {
                 if (!csFile || csFile.length === 0){
-                    console.log('no csharp files in sb workspace, opening walkthrough');
-                    vscode.commands.executeCommand("workbench.action.openWalkthrough",  { category: 'fajita-of-treason.streamer-bot-csharp#sb.welcome', step: 'createNewFile' }, false);
+                    console.log('no csharp files in sb workspace, running first run tasks');
+                    vscode.workspace.getConfiguration('editor').update('defaultFoldingRangeProvider', 'fajita-of-treason.streamer-bot-csharp');
+                    vscode.commands.executeCommand("workbench.action.openWalkthrough",  { category: 'fajita-of-treason.streamer-bot-csharp#sb.welcome', step: 'createNewFile' }, false).then(() => {
+                        setTimeout(() => vscode.commands.executeCommand('setContext', 'streamer-bot-csharp.projectJustCreated', true), 1000);
+                    });
                 }
             });
         }
     });
-    
-    context.subscriptions.push(vscode.commands.registerCommand("streamer-bot-csharp.openWalkthrough", async () => {
-        vscode.commands.executeCommand("workbench.action.openWalkthrough", 'fajita-of-treason.streamer-bot-csharp#sb.welcome', false);
-    }));
 
     let resumeProjectCreationDirectoryUri: vscode.Uri | undefined = undefined;
     context.subscriptions.push(vscode.commands.registerCommand("streamer-bot-csharp.newStreamerbotProject", async () => {
@@ -121,11 +125,10 @@ export function activate(context: vscode.ExtensionContext) {
         
         // Create Project File In Chosen Directory
         console.log("ready to create new files in " + newProjectDirectoryUri.fsPath);
-        const projectContent = (await vscode.workspace.openTextDocument(path.join(context.extensionPath, 'StreamerBot.csproj.xml')));
+        const projectContent = await vscode.workspace.openTextDocument(path.join(context.extensionPath, 'StreamerBot.csproj.xml'));
         const replacementText = getProjFileReplacementText(projectContent, sbDirectory);
         try{
             await vscode.workspace.fs.writeFile(vscode.Uri.file(path.join(newProjectDirectoryUri.fsPath, path.basename(newProjectDirectoryUri.fsPath) + '.csproj')), Buffer.from(replacementText));
-
             vscode.commands.executeCommand('vscode.openFolder', newProjectDirectoryUri, {forceNewWindow: newWindow});
             if (fromWorkspace){
                 vscode.commands.executeCommand('workbench.action.reloadWindow');

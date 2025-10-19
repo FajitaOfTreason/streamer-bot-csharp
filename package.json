@@ -60,11 +60,6 @@
         }
       }
     },
-    "configurationDefaults": {
-      "[csharp]": {
-        "editor.defaultFoldingRangeProvider": "fajita-of-treason.streamer-bot-csharp"
-      }
-    },
     "commands": [
       {
         "command": "streamer-bot-csharp.newStreamerbotProject",
@@ -133,7 +128,8 @@
               "markdown": "walkthrough_md/new_sb_project.md"
             },
             "completionEvents": [
-              "onContext:streamer-bot-csharp.inStreamerBotProject"
+              "onContext:streamer-bot-csharp.inStreamerBotProject",
+              "onContext:streamer-bot-csharp.projectJustCreated"
             ]
           },
           {
