@@ -24,7 +24,7 @@ The `New Streamer.bot C# Project` command lets you easily create a new Streamer.
 ![Animation of creating a new Streamer.bot C# project by browsing for Streamer.bot's installation](media/readme/command_new_sb_proj_example.gif)
 
 ### New File Creation with Template
-Quick creation of new C# files with a starting template when inside a Streamer.bot project directory with the `New Streamer.bot C# File` command  
+Quick creation of new C# files with a starting template when inside a Streamer.bot project directory with the `New Streamer.bot C# File` command, also accessible via `Create: New File...` or the context menu in the Explorer View
 ![Animation of creating a new Streamer.bot file via the New Streamer.bot C# File command](media/readme/new_file_example.gif)
 
 ### Copy Full File Contents into Streamer.bot

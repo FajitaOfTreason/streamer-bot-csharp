@@ -68,7 +68,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             const directoryPickChoice = await vscode.window.showQuickPick(
                 quickPickList,
-                {title: "Choose Directory for New Streamer.bot Project" }
+                {placeHolder: 'Select New Streamer.bot Project Folder' }
             );
             if (!directoryPickChoice){
                 console.log("project creation cancelled by user at quickpick project directory.");
@@ -187,7 +187,6 @@ export function activate(context: vscode.ExtensionContext) {
             validateInput: userText => {return validateNewFile(newFileDir, userText);},
         });
         if (fileName) {
-            console.log(fileName);
             const newFileUri = vscode.Uri.file(path.posix.join(rootPath, getNewCsFileRelativePath(newFileDir, fileName)));
             try {
                 const fileStats = await vscode.workspace.fs.stat(newFileUri);
@@ -359,7 +358,7 @@ async function getSbDirectoryQuickPick(sbStartMenuPathPromise: Promise<string | 
         const sbDirQuickPickSelection = await vscode.window.showQuickPick([
             ...sbDirQuickpickOptions,
             {label: "$(folder) Browse for Folder", description: "Other Folder"}
-        ],{canPickMany: false, placeHolder: "Select Streamer.bot Location"});
+        ],{canPickMany: false, placeHolder: "Select Current Streamer.bot Location"});
         if (!sbDirQuickPickSelection){
             console.log("project creation cancelled by user at sb quickpick");
             return;
@@ -393,7 +392,7 @@ function getSbDirectoryPathFromExePath(sbExePath: string): string | undefined{
 }
 
 async function promptUserForSbLocation(): Promise<string | undefined>{
-    const fileHandle = await vscode.window.showOpenDialog({ title: 'Select Streamer.bot location', filters: { 'Streamer.bot': ['exe'] }, canSelectMany: false });
+    const fileHandle = await vscode.window.showOpenDialog({ title: 'Select Current Streamer.bot Location', filters: { 'Streamer.bot': ['exe'] }, canSelectMany: false });
     if (fileHandle) {
         const sbExePath = fileHandle[0].fsPath;
         const sbDirectory = getSbDirectoryPathFromExePath(sbExePath);
