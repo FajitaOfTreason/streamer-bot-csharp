@@ -21,11 +21,19 @@ export function activate(context: vscode.ExtensionContext) {
 
     getSbProjectRootPath().then(path =>{
         if (path){
+            // The FoldingRangeProvider registered last gets priority when merging ranges
+            // This waits 2 seconds to ensure priority over the c# extension's class declaration folding range
+            setTimeout(() => context.subscriptions.push(vscode.languages.registerFoldingRangeProvider({language: 'csharp', scheme: 'file'}, new sbFoldingProvider)), 2000);
+            
+            // Default folding range provider works as expected when using regex, but with a FoldingRangeProvider, if set it will be the ONLY provider
+            // Since the previous version of this extension set this on new projects, it must now unset that
+            if (vscode.workspace.getConfiguration('editor').get('defaultFoldingRangeProvider') === 'fajita-of-treason.streamer-bot-csharp'){
+                vscode.workspace.getConfiguration('editor').update('defaultFoldingRangeProvider', undefined);
+            }
             rootPath = path;
             vscode.workspace.findFiles('**/*.cs', "**/{bin,obj}/**", 1).then(csFile => {
                 if (!csFile || csFile.length === 0){
                     console.log('no csharp files in sb workspace, running first run tasks');
-                    vscode.workspace.getConfiguration('editor').update('defaultFoldingRangeProvider', 'fajita-of-treason.streamer-bot-csharp');
                     vscode.commands.executeCommand("workbench.action.openWalkthrough",  { category: 'fajita-of-treason.streamer-bot-csharp#sb.welcome', step: 'createNewFile' }, false).then(() => {
                         setTimeout(() => vscode.commands.executeCommand('setContext', 'streamer-bot-csharp.projectJustCreated', true), 1000);
                     });
@@ -218,6 +226,38 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.executeCommand('workbench.action.openSettings', '@ext:fajita-of-treason.streamer-bot-csharp'); 
     }));
 }
+
+class sbFoldingProvider implements vscode.FoldingRangeProvider {
+    provideFoldingRanges(document: vscode.TextDocument, context: vscode.FoldingContext, token: vscode.CancellationToken) {
+        let ranges: vscode.FoldingRange[] = [];
+        let classDefLine: number | undefined = undefined;
+        for (let i = 0; i < document.lineCount; i++) {
+            const line = document.lineAt(i).text;
+            if (line.match(/^\s*#if EXTERNAL_EDITOR\s*$/) && i >= 1) {
+                // as long as the line before the #if EXTERNAL_EDITOR line is empty or a comment, create folding range
+                if (document.lineAt(i-1).isEmptyOrWhitespace || document.lineAt(i-1).text.match(/^\s*\/[*\/]/)) {
+                    ranges.push(new vscode.FoldingRange(i-1, i, vscode.FoldingRangeKind.Region));
+                }
+            }
+            else if (line.match(/^\s*public\s+class\s+\w+\s*:\s*CPHInlineBase\s*$/)) {
+                classDefLine = i;
+            }
+            else if (line.match(/^\s*#endif\s*$/)) {
+                let endLine = i;
+                // this ending /* ----- */ style comment is no longer added in the new file snippet
+                // but it's still included in folding range if it follows the #endif line
+                if (document.lineAt(i+1).text.match(/^\s*\/\*-+\*\/\s*$/)) {
+                    endLine = i+1;
+                }
+                if (classDefLine) {
+                    ranges.push(new vscode.FoldingRange(classDefLine, endLine, vscode.FoldingRangeKind.Region));
+                }
+                break;
+            }
+        }
+        return ranges;
+    };
+};
 
 function getProjFileReplacementText(contents: vscode.TextDocument, sbDirectory: string) {
     return contents.getText().replace(/(?<=\<StreamerBotPath[^\>]*\>)([^<]*)(?=\<\/StreamerBotPath\>)/, sbDirectory);

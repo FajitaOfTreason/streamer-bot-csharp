@@ -33,15 +33,6 @@
         "path": "./snippets.json"
       }
     ],
-    "languages": [
-      {
-        "id": "csharp",
-        "extensions": [
-          ".cs"
-        ],
-        "configuration": "./language-configuration.json"
-      }
-    ],
     "configuration": {
       "title": "Streamer.bot C#",
       "properties": {
@@ -99,7 +90,7 @@
         },
         {
           "command": "streamer-bot-csharp.newFile",
-          "when": "streamer-bot-csharp.inStreamerBotProject && resourceFilename not in streamer-bot-csharp.streamerBotProjFilename && !(resourcePath =~ /(obj|bin)/)",
+          "when": "streamer-bot-csharp.inStreamerBotProject && resourceFilename not in streamer-bot-csharp.streamerBotProjFilename && !(resourcePath =~ /(obj|bin|\\.vscode)/)",
           "group": "Streamer.bot"
         }
       ]
