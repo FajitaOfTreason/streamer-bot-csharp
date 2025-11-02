@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### [unreleased]
 
+### Added
+
+- Provides hover info for CPH methods from markdown files in csharp section of Streamer.bot's docs repository
+- Adds link in hover to Streamer.bot docs web page for CPH method whether or not markdown file exists
+- Fetches shas from Streamer.bot's docs repository on GitHub via content and trees apis, and downloads missing or out of date documentation
+  - Only gets shas for files if the directory sha has changed, therefore only one API call will be done if no changes have occured.
+
 ### Changed
 
 - Removed comments surrounding preprocessor directives in new file snippet

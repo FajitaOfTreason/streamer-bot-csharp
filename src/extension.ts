@@ -6,10 +6,12 @@ import * as vscode from "vscode";
 import { exec } from "child_process";
 import * as os from "os";
 import { promisify } from "util";
+import { sbHoverProvider } from "./code-documentation";
 
 export const getNewFileDir = () => vscode.workspace.getConfiguration('streamer-bot-csharp').get('newFileDir', 'src').trim().replaceAll(/^\/|\/$/g, '');
 let rootPath: string | undefined;
 let sbProjUri: vscode.Uri | undefined;
+const csharpDocumentSelector = {language: 'csharp', scheme: 'file'};
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -23,7 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (path){
             // The FoldingRangeProvider registered last gets priority when merging ranges
             // This waits 2 seconds to ensure priority over the c# extension's class declaration folding range
-            setTimeout(() => context.subscriptions.push(vscode.languages.registerFoldingRangeProvider({language: 'csharp', scheme: 'file'}, new sbFoldingProvider)), 2000);
+            setTimeout(() => context.subscriptions.push(vscode.languages.registerFoldingRangeProvider(csharpDocumentSelector, new sbFoldingProvider)), 2000);
             
             // Default folding range provider works as expected when using regex, but with a FoldingRangeProvider, if set it will be the ONLY provider
             // Since the previous version of this extension set this on new projects, it must now unset that
@@ -41,6 +43,8 @@ export function activate(context: vscode.ExtensionContext) {
             });
         }
     });
+
+    context.subscriptions.push(vscode.languages.registerHoverProvider(csharpDocumentSelector, new sbHoverProvider(context)));
 
     let resumeProjectCreationDirectoryUri: vscode.Uri | undefined = undefined;
     context.subscriptions.push(vscode.commands.registerCommand("streamer-bot-csharp.newStreamerbotProject", async () => {

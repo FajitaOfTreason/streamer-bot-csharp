@@ -14,7 +14,9 @@
   "license": "SEE LICENSE IN LICENSE.txt",
   "pricing": "Free",
   "version": "1.0.0",
-  "extensionDependencies": ["ms-dotnettools.csharp"],
+  "extensionDependencies": [
+    "ms-dotnettools.csharp"
+  ],
   "engines": {
     "vscode": "^1.104.0"
   },
@@ -38,13 +40,13 @@
       "properties": {
         "streamer-bot-csharp.autoFold": {
           "type": "boolean",
-          "default" : true,
+          "default": true,
           "description": "Auto-Fold sections of template containg the preprocessor directives"
         },
         "streamer-bot-csharp.newFileDir": {
           "title": "New File Directory",
           "type": "string",
-          "default" : "src",
+          "default": "src",
           "description": "Directory in which new Streamer.bot C# files will be created in workspace",
           "pattern": "^([\\w\\ \\.-]*[\\/\\\\]?)*$",
           "patternErrorMessage": "Directory path should contain no special characters"
@@ -76,11 +78,20 @@
     ],
     "menus": {
       "commandPalette": [
-          {"command": "streamer-bot-csharp.setStreamerBotPath", "when": "streamer-bot-csharp.inStreamerBotProject"},
-          {"command": "streamer-bot-csharp.newFile", "when": "streamer-bot-csharp.inStreamerBotProject"}
+        {
+          "command": "streamer-bot-csharp.setStreamerBotPath",
+          "when": "streamer-bot-csharp.inStreamerBotProject"
+        },
+        {
+          "command": "streamer-bot-csharp.newFile",
+          "when": "streamer-bot-csharp.inStreamerBotProject"
+        }
       ],
       "file/newFile": [
-        {"command": "streamer-bot-csharp.newFile", "when": "streamer-bot-csharp.inStreamerBotProject"}
+        {
+          "command": "streamer-bot-csharp.newFile",
+          "when": "streamer-bot-csharp.inStreamerBotProject"
+        }
       ],
       "explorer/context": [
         {
@@ -99,7 +110,6 @@
       {
         "id": "sb.welcome",
         "title": "Streamer.bot C#",
-        "featuredFor": ["StreamerBot.csproj"],
         "description": "Create Streamer.bot C# files with IntelliSense.",
         "steps": [
           {
@@ -136,7 +146,6 @@
             ]
           }
         ]
-
       }
     ]
   },
@@ -149,14 +158,15 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.104.0",
+    "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/vscode": "^1.104.0",
     "@typescript-eslint/eslint-plugin": "^8.42.0",
     "@typescript-eslint/parser": "^8.42.0",
-    "eslint": "^9.34.0",
-    "typescript": "^5.9.2",
     "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.34.0",
+    "typescript": "^5.9.2"
   }
 }
