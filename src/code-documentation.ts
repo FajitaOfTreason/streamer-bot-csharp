@@ -101,7 +101,8 @@ export class sbHoverProvider implements vscode.HoverProvider {
             if (docFileData.mdBody) {
                 descriptionMarkdown.appendMarkdown(docFileData.mdBody);
             }
-            descriptionMarkdown.value = descriptionMarkdown.value.replace(/(?:^|<br>)\s*Returns?\s+(\w)/im, (_, firstLetter:string) => '\n\nReturns:  \n&nbsp;&nbsp;'+firstLetter.toUpperCase());
+
+            reformatSbMarkdown(descriptionMarkdown);
             const hoverMdStrings = [descriptionMarkdown];
 
             const sbDocLinkMarkdown = await sbDocLinkMdPromise;
@@ -141,7 +142,8 @@ export class sbHoverProvider implements vscode.HoverProvider {
                 expectedFileName = expectedFileName.substring(lastUrlDirectory.length+1);
             }
             const sbDocLink = path.posix.join(sbCsharpDocsUrlPathPrefix, referencePath, expectedFileName);
-            const sbDocLinkMarkdown = new vscode.MarkdownString(`\n\n[Open Documentation in Browser](${sbDocLink})`);
+            const sbDocLinkMarkdown = new vscode.MarkdownString(`\n\n$(link-external) [Open Documentation in Browser](${sbDocLink})`);
+            sbDocLinkMarkdown.supportThemeIcons = true;
             sbDocLinkMarkdown.baseUri = sbDocsBaseUri;
             return sbDocLinkMarkdown;
         }
@@ -151,7 +153,7 @@ export class sbHoverProvider implements vscode.HoverProvider {
         const cacheInfo = await this.getDocsCacheInfo();
         const baseApiResponse = await fetch(csharpDocsApiUrl);
         if (!baseApiResponse.ok){
-            throw new Error("Error accessing GitHub API: " + baseApiResponse.statusText);
+            throw new Error('Error accessing GitHub API: ' + baseApiResponse.statusText);
         }
 
         const csharpDocsContentData = await baseApiResponse.json() as GitHubContentData[];
@@ -170,16 +172,19 @@ export class sbHoverProvider implements vscode.HoverProvider {
             await this.getFileInfoForDirectory(subDirectoryInfo);
             const matchingCacheInfo = cacheInfo.find(x => x.path === subDirectoryInfo.path);
             updatedDirectoryCaches.push(this.downloadDocFilesInDirectory(subDirectoryInfo, matchingCacheInfo));
-            totalDeleted += await this.deleteRemovedFiles(subDirectoryInfo, matchingCacheInfo);
+            totalDeleted += this.deleteRemovedFiles(subDirectoryInfo, matchingCacheInfo);
         }
 
         const completedDownloadResults = await Promise.all(updatedDirectoryCaches);
         const totalFilesDownloaded = completedDownloadResults.reduce((current, x) => current + x.files.length, 0);
-        if (totalDeleted > 0){
-            console.log(totalDeleted + ' moved/deleted doc files were deleted locally');
-        }
-        if (totalFilesDownloaded > 0){
-            console.log(totalFilesDownloaded + ' new/updated doc files were downloaded');
+
+        if (totalFilesDownloaded > 0 || totalDeleted > 0){
+            if (totalDeleted > 0){
+                console.log(totalDeleted + ' moved/deleted doc files were deleted locally');
+            }
+            if (totalFilesDownloaded > 0){
+                console.log(totalFilesDownloaded + ' new/updated doc files were downloaded');
+            }
             await this.writeDocsCacheInfoFile(completedDownloadResults, cacheInfo);
             return true;
         }
@@ -187,7 +192,7 @@ export class sbHoverProvider implements vscode.HoverProvider {
         return false;
     }
 
-    async deleteRemovedFiles(subDirectoryInfo: DirectoryCacheInfo, matchingCacheInfo: DirectoryCacheInfo | undefined) {
+    deleteRemovedFiles(subDirectoryInfo: DirectoryCacheInfo, matchingCacheInfo: DirectoryCacheInfo | undefined) {
         if (!matchingCacheInfo){
             return 0;
         }
@@ -195,7 +200,7 @@ export class sbHoverProvider implements vscode.HoverProvider {
         const cachedFilesToRemove = matchingCacheInfo.files.filter(c => !fetchedFilePaths.has(c.path));
         for (const fileToDelete of cachedFilesToRemove){
             const deletionUri = vscode.Uri.joinPath(this.docsDirectoryUri, matchingCacheInfo.path, fileToDelete.path);
-            await vscode.workspace.fs.delete(deletionUri);
+            vscode.workspace.fs.delete(deletionUri);
         }
         matchingCacheInfo.files = matchingCacheInfo.files.filter(c => fetchedFilePaths.has(c.path));
         return cachedFilesToRemove.length;
@@ -205,7 +210,7 @@ export class sbHoverProvider implements vscode.HoverProvider {
         const treeInfoUrl = path.posix.join(streamerBotDocsTreeApiUrl, directoryInfo.sha) + '?recursive=true';
         const streamerBotSubTreeResponse = await fetch(treeInfoUrl);
         if (!streamerBotSubTreeResponse.ok){
-            throw new Error("Error reaching GitHub API: " + streamerBotSubTreeResponse.statusText);
+            throw new Error('Error reaching GitHub API: ' + streamerBotSubTreeResponse.statusText);
         }
         console.log('Remaining Rate Limit: ' + streamerBotSubTreeResponse.headers.get('x-ratelimit-remaining'));
         const subTreeResponseData = await streamerBotSubTreeResponse.json() as GitHubTreeResponse;
@@ -305,4 +310,35 @@ export class sbHoverProvider implements vscode.HoverProvider {
             return yaml.load(docFile.getText(), {json: true}) as DocFileData;
         }
     }
+}
+
+const convertToFriendlyName = (text:string) => {
+    const urlMatch = /(?:https?:\/\/(?:www.)?)?(?<domain>[\w.]*)/.exec(text);
+    if (urlMatch?.groups?.domain){
+        return urlMatch.groups.domain;
+    }
+    text = text.replace(/\/api\/csharp/, '');
+    text = text.replace(/^\/?([a-z])/, (_,c) => c.toUpperCase()).replaceAll(/\/([a-z])/g, (_,c) => ' > ' + c.toUpperCase());
+    text = text.replaceAll(/-([a-z])/g, (_,c) => ' ' + c.toUpperCase());
+    return text;
+};
+
+const sbMdReplacements = [
+    (text: string) => text.replace(/(?:^|<br>)\s*Returns?\s+(\w)/im, (_, firstLetter) => '\n\nReturns:  \n&nbsp;&nbsp;'+firstLetter.toUpperCase()),
+    (text: string) => text.replaceAll(/::warning/gi, '$(warning)'),
+    (text: string) => text.replaceAll(/::caution/gi, '$(error)'),
+    (text: string) => text.replaceAll(/::tip/gi, '$(light-bulb)'),
+    (text: string) => text.replaceAll(/::note/gi, '$(info)'),
+    (text: string) => text.replaceAll(/::read-more\{to="?([^"}]*)"?}/gi, (_, link) => `$(book) [Read More at ${convertToFriendlyName(link)}](${link})\n`),
+    (text: string) => text.replaceAll(/:kbd\{value="?([^"}]+)"?\}/gi, (_, kbdval) => `\`${kbdval.replace('meta', 'ctrl').toUpperCase()}\``),
+    (text: string) => text.replaceAll(/::/g, ''),
+];
+
+function reformatSbMarkdown(descriptionMarkdown: vscode.MarkdownString) {
+    descriptionMarkdown.supportThemeIcons = true;
+    let text = descriptionMarkdown.value;
+    for (const replacement of sbMdReplacements){
+        text = replacement(text);
+    }
+    descriptionMarkdown.value = text;
 }
