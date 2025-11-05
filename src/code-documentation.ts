@@ -100,21 +100,15 @@ export class sbDocumentationProvider implements vscode.HoverProvider {
 
             reformatSbMarkdown(descriptionMarkdown);
 
-            docFileData.parameters?.forEach(x => console.log(x.description));
             let parameterDescriptions = docFileData.parameters?.filter(x => !!x.description).map(x => '&nbsp;`' + x.name + '`: ' + x.description.trim());
-            parameterDescriptions?.forEach(x => console.log(x));
             if (parameterDescriptions && parameterDescriptions.length > 0){
                 for (const replacement of sbMdReplacements){
                     parameterDescriptions = parameterDescriptions.map(x => replacement(x));
                 }
-                console.log('before', parameterDescriptions);
                 parameterDescriptions = parameterDescriptions.map(extraLinesToBullets);
-                console.log('after', parameterDescriptions);
                 const parametersMd = '\n\nParameters:  \n' + parameterDescriptions.join('  \n');
-                console.log(parametersMd);
                 descriptionMarkdown.appendMarkdown(parametersMd);
             }
-
 
             const hoverMdStrings = [descriptionMarkdown];
             const sbDocLinkMarkdown = await sbDocLinkMdPromise;
@@ -201,7 +195,6 @@ export class sbDocumentationProvider implements vscode.HoverProvider {
         if (!streamerBotSubTreeResponse.ok){
             throw new Error('Error reaching GitHub API: ' + streamerBotSubTreeResponse.statusText);
         }
-        console.log('Remaining Rate Limit: ' + streamerBotSubTreeResponse.headers.get('x-ratelimit-remaining'));
         const subTreeResponseData = await streamerBotSubTreeResponse.json() as GitHubTreeResponse;
         const subTreeFileList = subTreeResponseData.tree.filter(x => x.type === 'blob');
         directoryInfo.files = subTreeFileList.map(x => ({path: x.path, sha: x.sha}));
@@ -304,14 +297,15 @@ export class sbDocumentationProvider implements vscode.HoverProvider {
         const yamlData = yaml.load(docFile.getText(yamlRange), { json: true }) as DocFileData;
         for (const parameter of yamlData.parameters ?? []){
             if (parameter.import){
-                const importPath = vscode.Uri.joinPath(this.docsDirectoryUri, csharpSbParametersDir, parameter.import + '.yml');
+                const relativeImportPath = path.posix.join(csharpSbParametersDir, parameter.import + '.yml');
+                const importPath = vscode.Uri.joinPath(this.docsDirectoryUri, relativeImportPath);
                 try {
                     const importDoc = await vscode.workspace.openTextDocument(importPath);
                     const importedParameter = yaml.load(importDoc.getText()) as ParameterData;
                     parameter.description = parameter.description ?? importedParameter.description;
                 }
                 catch (err:any) {
-                    console.log('error reading imported parameter file:\n' + err);
+                    console.log('error reading imported parameter file at ' + relativeImportPath);
                 }
             }
         }
@@ -347,7 +341,6 @@ export class sbDocumentationProvider implements vscode.HoverProvider {
             const referencePath = convertToSbDocCasing([...categoryList].join(path.posix.sep));
             const lastUrlDirectory = path.basename(referencePath);
             if (expectedFileName.startsWith(lastUrlDirectory)){
-                console.log('path pattern is irregular for ' + expectedFileName + ' in path ' + referencePath);
                 expectedFileName = expectedFileName.substring(lastUrlDirectory.length+1);
             }
             const sbDocLink = path.posix.join(sbCsharpDocsUrlPathPrefix, referencePath, expectedFileName);
@@ -413,7 +406,25 @@ const getBlockIcon = (blockType: string) => {
     }
 };
 
-const extraLinesToBullets = (text:string) => text.replaceAll(/^\s*\n/gm, '').replaceAll(/\n(?=\s*[^-])/gm, '\n- ');
+const extraLinesToBullets = (text:string) => {
+    const nonEmptyLines = text.split('\n').filter(t => !t.match(/^\s*$/));
+    if (nonEmptyLines.length > 1){
+        const outputLines: string[] = [nonEmptyLines[0]];
+        for (let i = 1; i < nonEmptyLines.length; i++) {
+            let line = nonEmptyLines[i];
+            if (line.match(/^\s*- /)){
+                line = '  ' + line;
+            }
+            else {
+                line = '- ' + line;
+            }
+            outputLines.push(line);
+        }
+        text = outputLines.join('\n') + '\n';
+    }
+
+    return text;
+};
 
 const sbMdReplacements = [
     (text: string) => text.replace(/(?:^|<br>)\s*Returns?\s+(\w)/im, (_, firstLetter) => '\n\nReturns:  \n&nbsp;&nbsp;'+firstLetter.toUpperCase()),
