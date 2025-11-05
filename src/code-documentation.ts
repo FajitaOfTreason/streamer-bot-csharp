@@ -5,8 +5,17 @@ import { glob } from "fs/promises";
 
 interface DocFileData {
     description: string;
+    parameters: ParameterData[] | undefined
     example: string;
     mdBody: string;
+}
+
+interface ParameterData{
+    name: string;
+    import: string;
+    required: boolean;
+    description: string;
+    default: any;
 }
 
 interface GitHubContentData {
@@ -49,9 +58,7 @@ const csharpSbMethodsDir = '3.methods';
 const csharpSbParametersDir = '.parameters';
 const csharpSbSubdirectories = [csharpSbMethodsDir, csharpSbParametersDir];
 
-const convertToSbDocCasing = (text:string) => text.replaceAll(/\s*([A-Z])/g, (_, upperLetter) => '-' + upperLetter.toLowerCase()).replaceAll(/(?<=^|\/)-/g, '');
-
-export class sbHoverProvider implements vscode.HoverProvider {
+export class sbDocumentationProvider implements vscode.HoverProvider {
     context: vscode.ExtensionContext;
     docsDirectoryUri: vscode.Uri;
     docsCacheInfoFileUri: vscode.Uri;
@@ -78,33 +85,38 @@ export class sbHoverProvider implements vscode.HoverProvider {
         if (prevWord !== 'CPH') {
             return undefined;
         }
+
+        const expectedFileName = convertToSbDocCasing(word);
         const definitionLocs = vscode.commands.executeCommand<vscode.Location[]>('vscode.executeDefinitionProvider', document.uri, position);
         const sbDocLinkMdPromise = definitionLocs.then(defLocs => this.getSbDocLinkMarkdown(defLocs, expectedFileName));
-
-        const docSearchDirectory = vscode.Uri.joinPath(this.docsDirectoryUri, csharpSbMethodsDir).fsPath;
-        const expectedFileName = convertToSbDocCasing(word);
-        const docSearchPattern = `**/${expectedFileName}.{yml,md}`;
-        let matchingDocFile: string | undefined = undefined;
-        for await (const entry of glob(docSearchPattern, {cwd: docSearchDirectory})){
-            matchingDocFile = path.join(docSearchDirectory, entry);
-            break;
-        }
-
-        if (matchingDocFile){
-            const docFileData = await sbHoverProvider.getDocFileData(matchingDocFile);
-            if (!docFileData){
-                return;
-            }
+        const docFileData = await this.loadMatchingDocumentation(expectedFileName);
+        if (docFileData) {
             const descriptionMarkdown = new vscode.MarkdownString(docFileData.description + '\n');
             descriptionMarkdown.baseUri = sbDocsBaseUri;
             descriptionMarkdown.supportHtml = true;
             if (docFileData.mdBody) {
-                descriptionMarkdown.appendMarkdown(docFileData.mdBody);
+                descriptionMarkdown.appendMarkdown(docFileData.mdBody);    
             }
 
             reformatSbMarkdown(descriptionMarkdown);
-            const hoverMdStrings = [descriptionMarkdown];
 
+            docFileData.parameters?.forEach(x => console.log(x.description));
+            let parameterDescriptions = docFileData.parameters?.filter(x => !!x.description).map(x => '&nbsp;`' + x.name + '`: ' + x.description.trim());
+            parameterDescriptions?.forEach(x => console.log(x));
+            if (parameterDescriptions && parameterDescriptions.length > 0){
+                for (const replacement of sbMdReplacements){
+                    parameterDescriptions = parameterDescriptions.map(x => replacement(x));
+                }
+                console.log('before', parameterDescriptions);
+                parameterDescriptions = parameterDescriptions.map(extraLinesToBullets);
+                console.log('after', parameterDescriptions);
+                const parametersMd = '\n\nParameters:  \n' + parameterDescriptions.join('  \n');
+                console.log(parametersMd);
+                descriptionMarkdown.appendMarkdown(parametersMd);
+            }
+
+
+            const hoverMdStrings = [descriptionMarkdown];
             const sbDocLinkMarkdown = await sbDocLinkMdPromise;
             if (sbDocLinkMarkdown){
                 hoverMdStrings.push(sbDocLinkMarkdown);
@@ -123,29 +135,6 @@ export class sbHoverProvider implements vscode.HoverProvider {
             if (sbDocLinkMarkdown){
                 return new vscode.Hover(sbDocLinkMarkdown, range);
             }
-        }
-    }
-
-    private async getSbDocLinkMarkdown(definitionLocations: vscode.Location[], expectedFileName: string) {
-        for (const definitionLoc of definitionLocations) {
-            const definitionDoc = await vscode.workspace.openTextDocument(definitionLoc.uri);
-            const referenceAnnotation = definitionDoc.lineAt(definitionLoc.range.start.line - 1).text;
-            // annotation contains `new string[] { "Core", "Arguments" }`
-            const categoryList = referenceAnnotation.match(/(?<=new string\[\]\s*{)[^}]+(?=\})/)?.[0].matchAll(/(?<=")[\w\s]*?(?=")/g);
-            if (!categoryList) {
-                continue;
-            }
-            const referencePath = convertToSbDocCasing([...categoryList].join(path.posix.sep));
-            const lastUrlDirectory = path.basename(referencePath);
-            if (expectedFileName.startsWith(lastUrlDirectory)){
-                console.log('path pattern is irregular for ' + expectedFileName + ' in path ' + referencePath);
-                expectedFileName = expectedFileName.substring(lastUrlDirectory.length+1);
-            }
-            const sbDocLink = path.posix.join(sbCsharpDocsUrlPathPrefix, referencePath, expectedFileName);
-            const sbDocLinkMarkdown = new vscode.MarkdownString(`\n\n$(link-external) [Open Documentation in Browser](${sbDocLink})`);
-            sbDocLinkMarkdown.supportThemeIcons = true;
-            sbDocLinkMarkdown.baseUri = sbDocsBaseUri;
-            return sbDocLinkMarkdown;
         }
     }
 
@@ -277,7 +266,7 @@ export class sbHoverProvider implements vscode.HoverProvider {
         await vscode.workspace.fs.writeFile(this.docsCacheInfoFileUri, Buffer.from(cacheInfoString));
     }
 
-    private static async getDocFileData(docFilePath: string): Promise<DocFileData | undefined> {
+    private async getDocFileData(docFilePath: string): Promise<DocFileData | undefined> {
         const docFile = await vscode.workspace.openTextDocument(docFilePath);
         if (docFile.languageId === 'markdown'){
             let yamlStart: vscode.Position | undefined = undefined;
@@ -298,19 +287,79 @@ export class sbHoverProvider implements vscode.HoverProvider {
 
             if (yamlStart !== undefined && yamlEnd !== undefined){
                 const yamlRange = new vscode.Range(yamlStart, yamlEnd);
-                const mdDocFileData = yaml.load(docFile.getText(yamlRange), {json: true}) as DocFileData;
+                const mdDocFileData = this.getYamlData(docFile, yamlRange);
                 const docsMdBodyRange = new vscode.Range(yamlEnd.translate(1,0), docFile.lineAt(docFile.lineCount - 1).range.end);
                 if (docFile.validateRange(docsMdBodyRange)) {
-                    mdDocFileData.mdBody = docFile.getText(docsMdBodyRange);
+                    mdDocFileData.then(data => data.mdBody = docFile.getText(docsMdBodyRange));
                 }
                 return mdDocFileData;
             }
         }
         else if (docFile.languageId === 'yaml'){
-            return yaml.load(docFile.getText(), {json: true}) as DocFileData;
+            return this.getYamlData(docFile);
+        }
+    }
+
+    private async getYamlData(docFile: vscode.TextDocument, yamlRange?: vscode.Range) {
+        const yamlData = yaml.load(docFile.getText(yamlRange), { json: true }) as DocFileData;
+        for (const parameter of yamlData.parameters ?? []){
+            if (parameter.import){
+                const importPath = vscode.Uri.joinPath(this.docsDirectoryUri, csharpSbParametersDir, parameter.import + '.yml');
+                try {
+                    const importDoc = await vscode.workspace.openTextDocument(importPath);
+                    const importedParameter = yaml.load(importDoc.getText()) as ParameterData;
+                    parameter.description = parameter.description ?? importedParameter.description;
+                }
+                catch (err:any) {
+                    console.log('error reading imported parameter file:\n' + err);
+                }
+            }
+        }
+        return yamlData;
+    }
+
+    private async loadMatchingDocumentation(expectedFileName: string) {
+        const docSearchDirectory = vscode.Uri.joinPath(this.docsDirectoryUri, csharpSbMethodsDir).fsPath;
+        const docSearchPattern = `**/${expectedFileName}.{yml,md}`;
+        let matchingDocFile: string | undefined = undefined;
+        for await (const entry of glob(docSearchPattern, {cwd: docSearchDirectory})){
+            matchingDocFile = path.join(docSearchDirectory, entry);
+            break;
+        }
+
+        if (matchingDocFile){
+            const docFileData = await this.getDocFileData(matchingDocFile);
+            if (docFileData){
+                return docFileData;
+            }
+        }
+    }
+
+    private async getSbDocLinkMarkdown(definitionLocations: vscode.Location[], expectedFileName: string) {
+        for (const definitionLoc of definitionLocations) {
+            const definitionDoc = await vscode.workspace.openTextDocument(definitionLoc.uri);
+            const referenceAnnotation = definitionDoc.lineAt(definitionLoc.range.start.line - 1).text;
+            // annotation contains `new string[] { "Core", "Arguments" }`
+            const categoryList = referenceAnnotation.match(/(?<=new string\[\]\s*{)[^}]+(?=\})/)?.[0].matchAll(/(?<=")[\w\s]*?(?=")/g);
+            if (!categoryList) {
+                continue;
+            }
+            const referencePath = convertToSbDocCasing([...categoryList].join(path.posix.sep));
+            const lastUrlDirectory = path.basename(referencePath);
+            if (expectedFileName.startsWith(lastUrlDirectory)){
+                console.log('path pattern is irregular for ' + expectedFileName + ' in path ' + referencePath);
+                expectedFileName = expectedFileName.substring(lastUrlDirectory.length+1);
+            }
+            const sbDocLink = path.posix.join(sbCsharpDocsUrlPathPrefix, referencePath, expectedFileName);
+            const sbDocLinkMarkdown = new vscode.MarkdownString(`\n\n$(link-external) [Open Documentation in Browser](${sbDocLink})`);
+            sbDocLinkMarkdown.supportThemeIcons = true;
+            sbDocLinkMarkdown.baseUri = sbDocsBaseUri;
+            return sbDocLinkMarkdown;
         }
     }
 }
+
+const convertToSbDocCasing = (text:string) => text.replaceAll(/\s*([A-Z])/g, (_, upperLetter) => '-' + upperLetter.toLowerCase()).replaceAll(/(?<=^|\/)-/g, '');
 
 const convertToFriendlyName = (text:string) => {
     const urlMatch = /(?:https?:\/\/(?:www.)?)?(?<domain>[\w.]*)/.exec(text);
@@ -323,15 +372,56 @@ const convertToFriendlyName = (text:string) => {
     return text;
 };
 
+const formatMdiBlock = (blockType: string, props: string | undefined, innerText:string) => {
+    const mdText = getBlockIcon(blockType) + getLinkMarkdown(props) + innerText;
+    return extraLinesToBullets(mdText);
+};
+
+const getLinkMarkdown = (props: string | undefined) => {
+    let link: string | undefined = undefined;
+    if (props){
+        const match = /{to="?(?<link>.*?)"?}/.exec(props);
+        if (match){
+            link = match?.groups?.link;
+            if (link){
+                return `[Read More at ${convertToFriendlyName(link)}](${link})\n`;
+            }
+        }
+    }
+
+    return '';
+};
+
+const getBlockIcon = (blockType: string) => {
+    switch (blockType){
+        case 'warning':
+            return '$(warning) ';
+        case 'caution':
+            return '$(error) ';
+        case 'tip':
+            return '$(light-bulb) ';
+        case 'note':
+            return '$(info) ';
+        case 'read-more':
+            return '$(book) ';
+        case 'navigate':
+            return '$(compass) ';
+        case 'success':
+            return '$(pass) ';
+        default:
+            return '';
+    }
+};
+
+const extraLinesToBullets = (text:string) => text.replaceAll(/^\s*\n/gm, '').replaceAll(/\n(?=\s*[^-])/gm, '\n- ');
+
 const sbMdReplacements = [
     (text: string) => text.replace(/(?:^|<br>)\s*Returns?\s+(\w)/im, (_, firstLetter) => '\n\nReturns:  \n&nbsp;&nbsp;'+firstLetter.toUpperCase()),
-    (text: string) => text.replaceAll(/::warning/gi, '$(warning)'),
-    (text: string) => text.replaceAll(/::caution/gi, '$(error)'),
-    (text: string) => text.replaceAll(/::tip/gi, '$(light-bulb)'),
-    (text: string) => text.replaceAll(/::note/gi, '$(info)'),
-    (text: string) => text.replaceAll(/::read-more\{to="?([^"}]*)"?}/gi, (_, link) => `$(book) [Read More at ${convertToFriendlyName(link)}](${link})\n`),
+    (text: string) => text.replaceAll(/::([a-z\-]+)(\{.*?\})?\s*\n((?:^(?!::).*\n)*)::(?=\s*$)/gmi, (_,blockType, props, innerText) => formatMdiBlock(blockType, props, innerText)),
+    (text: string) => text.replaceAll(/::read-more(\{.*?\})/gi, (_, props) => '$(book) ' + getLinkMarkdown(props)),
     (text: string) => text.replaceAll(/:kbd\{value="?([^"}]+)"?\}/gi, (_, kbdval) => `\`${kbdval.replace('meta', 'ctrl').toUpperCase()}\``),
-    (text: string) => text.replaceAll(/::/g, ''),
+    (text: string) => text.replaceAll(/{lang=\w*?}/gi, ''),
+    (text: string) => text.replaceAll(/::\n?/g, ''),
 ];
 
 function reformatSbMarkdown(descriptionMarkdown: vscode.MarkdownString) {
