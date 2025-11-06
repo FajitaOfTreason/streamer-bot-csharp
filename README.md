@@ -6,6 +6,10 @@ Write Streamer.bot C# code with up to date IntelliSense from your Streamer.bot i
 Combines autocomplete for standard C# methods with autocomplete for Streamer.bot specific code by referencing your local Streamer.bot installation, ensuring that it does not get out of date.  
 ![Screenshot showing a Streamer.bot specific autocomplete dropdown on the CPH object in VS Code](media/readme/csharp_autocomplete.png)  
 
+### Documentation
+Loads C# documentation from the Streamer.bot docs repository to provide hovers when you mouse over CPH methods.
+![Hover showing documentation for a CPH method](media/readme/cph_method_hover.png)
+
 ### Snippets
 Snippets for common actions!  
 ![Animation of snippets being used to get an argument, get a global, and set a global](media/readme/snippet_example.gif)  
