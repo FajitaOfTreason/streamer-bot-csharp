@@ -57,6 +57,11 @@ This extension is my attempt to add a layer of convenience to a [fantastic tutor
 No current issues.
 
 ## Release Notes
+### 1.1.0
+
+Added documentation to Hover on CPH methods
+Removed need for comment lines for folding preprocessor directives
+
 ### 1.0.0
 
 Initial release of the Streamer.bot C# extension
