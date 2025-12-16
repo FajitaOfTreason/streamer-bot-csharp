@@ -75,6 +75,18 @@
         "description": "Log message to Streamer.bot's log file",
         "body": "CPH.Log${1|Debug,Error,Warn,Info,Verbose|}($\"${0:${TM_SELECTED_TEXT:value}}\");"
     },
+    "Insert Prepended Logging Methods" : {
+        "prefix": "prepended-log-methods",
+        "description": "Insert log methods prepended with the name of the class for easier log parsing",
+        "body": [
+            "private const string logSignature = \"${1:$TM_FILENAME_BASE}\";",
+            "private void LogError(string errorMessage) => CPH.LogError($\"[{logSignature}]: {errorMessage}\");",
+            "private void LogWarn(string warnMessage) => CPH.LogWarn($\"[{logSignature}]: {warnMessage}\");",
+            "private void LogInfo(string infoMessage) => CPH.LogInfo($\"[{logSignature}]: {infoMessage}\");",
+            "private void LogDebug(string debugMessage) => CPH.LogDebug($\"[{logSignature}]: {debugMessage}\");",
+            "private void LogVerbose(string verboseMessage) => CPH.LogVerbose($\"[{logSignature}]: {verboseMessage}\");"
+        ]
+    },
     "Get Random Integer" : {
         "prefix": "random-int",
         "description": "Get a random integer between two values (inclusive)",
